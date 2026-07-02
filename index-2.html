@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>InfoFlow KV — Information-Flow-Aware KV Recomputation for Long Context</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<template id="__bundler_thumbnail" data-bg-color="#1a1d2b">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#1a1d2b"/>
+    <g transform="translate(250,330)">
+      <circle cx="0"   cy="0"  r="14" fill="#78b4ff"/>
+      <circle cx="120" cy="-60" r="10" fill="#6ee1cd"/>
+      <circle cx="100" cy="70"  r="10" fill="#f0cd78"/>
+      <circle cx="240" cy="20"  r="22" fill="#f5c873"/>
+      <circle cx="260" cy="-50" r="10" fill="#e196e6"/>
+      <circle cx="560" cy="0"   r="26" fill="#9cc8ff"/>
+      <path d="M0 0 Q280 -120 560 0" stroke="#78b4ff" stroke-width="2" fill="none" opacity="0.5"/>
+      <path d="M240 20 Q400 40 560 0" stroke="#f5c873" stroke-width="3" fill="none" opacity="0.8"/>
+    </g>
+    <text x="600" y="500" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="64" fill="#9cc8ff">InfoFlow KV</text>
+  </svg>
+</template>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="bg-field"></div>
+<div class="bg-grid"></div>
+
+<!-- ============ NAV ============ -->
+<nav class="nav">
+  <div class="brand"><span class="blip"></span>InfoFlow<span style="color:var(--accent)">KV</span></div>
+  <div class="links">
+    <a href="#problem">Setting</a>
+    <a href="#method">Method</a>
+    <a href="#results">Results</a>
+    <a href="#cite">Cite</a>
+    <a href="https://arxiv.org/abs/2603.05353" target="_blank" rel="noopener" class="np" style="color:var(--accent)">arXiv ↗</a>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero" data-screen-label="Hero">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-mask"></div>
+  <div class="hero-inner">
+    <div class="eyebrow"><span class="pulse"></span>ICML 2026 · arXiv:2603.05353</div>
+    <h1 class="title"><span class="l1">InfoFlow</span><span class="l2">KV</span></h1>
+    <p class="hero-sub">Recompute only the tokens that <b>actually carry information</b> to the answer — selected by query-conditioned attention under inference-consistent RoPE.</p>
+
+    <div class="metrics">
+      <div class="metric"><div class="v"><span data-count="3.49" data-dec="2" data-suffix="×">0×</span></div><div class="k">Faster prefill @ 32K</div></div>
+      <div class="metric"><div class="v"><span data-count="2.57" data-dec="2" data-suffix="×">0×</span></div><div class="k">vs. Ring Attention</div></div>
+      <div class="metric"><div class="v">Zero<span> training</span></div><div class="k">Plug-and-play</div></div>
+    </div>
+
+    <div class="byline">
+      <span class="au">Xin Teng<sup>1</sup><span class="star">*</span></span>,
+      <span class="au">Canyu Zhang<sup>1</sup><span class="star">*</span></span>,
+      <span class="au">Shaoyi Zheng<sup>1</sup><span class="star">*</span></span>,
+      <span class="au">Danyang Zhuo<sup>2</sup></span>,
+      <span class="au">Tianyi Zhou<sup>3</sup></span>,
+      <span class="au">Shengjie Wang<sup>1</sup></span>
+    </div>
+    <div class="affil">
+      <span><sup>1</sup>New York University</span>
+      <span><sup>2</sup>Duke University</span>
+      <span><sup>3</sup>MBZUAI</span>
+      <span class="star" style="color:var(--hot)">* equal contribution</span>
+    </div>
+
+    <div class="btns">
+      <a class="btn primary" href="https://arxiv.org/abs/2603.05353" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v7h-7"/><path d="M3 10V3h7"/></svg>Paper</a>
+      <a class="btn" href="https://github.com/Canyu-Zhang/kv-cache-optimization" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>Code</a>
+      <a class="btn" href="#cite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>BibTeX</a>
+    </div>
+  </div>
+  <div class="scrollcue"><span>scroll</span><span class="bar"></span></div>
+</header>
+
+<!-- ============ THE SETTING ============ -->
+<section class="block section" id="problem" data-screen-label="The setting">
+  <div class="reveal">
+    <div class="kicker">01 — The setting</div>
+    <h2 class="h2">Cache each document once — <em>but combining caches breaks</em></h2>
+  </div>
+
+  <div class="setting reveal">
+    <div class="svis">
+      <div id="set-pos"></div>
+      <div class="slabel"><span class="b">1</span><span class="t">Positions collide — every chunk restarts at&nbsp;0</span></div>
+    </div>
+    <div class="svis">
+      <div id="set-attn"></div>
+      <div class="slabel"><span class="b">2</span><span class="t">Cross-document attention never computed</span></div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ============ EXISTING APPROACHES ============ -->
+<section class="block section" id="prior" data-screen-label="Existing approaches">
+  <div class="reveal">
+    <div class="kicker">02 — Existing approaches</div>
+    <h2 class="h2">Recompute a small subset to <em>patch back</em> cross-doc attention</h2>
+  </div>
+
+  <div class="masks reveal">
+    <div class="mask">
+      <div class="tag" style="color:var(--accent)">A · Cached</div>
+      <div id="mask-cached"></div>
+      <p class="cap"><b>Block-diagonal.</b> Each chunk attends only within itself.</p>
+    </div>
+    <div class="mask">
+      <div class="tag" style="color:var(--hot)">B · Recompute</div>
+      <div id="mask-recompute"></div>
+      <p class="cap"><b>Patch the gap.</b> ~15% of tokens recomputed under the full mask.</p>
+    </div>
+    <div class="mask">
+      <div class="tag" style="color:var(--ink-2)">C · Full causal</div>
+      <div id="mask-full"></div>
+      <p class="cap"><b>The reference.</b> Every token attends to all earlier tokens.</p>
+    </div>
+  </div>
+
+  <div class="priors reveal">
+    <div class="prior">
+      <div class="nm"><h4>EPIC</h4><span>attention sinks</span></div>
+      <div class="how">Always recomputes attention-sink tokens</div>
+      <div class="x">Fixed set — blind to the query.</div>
+    </div>
+    <div class="prior">
+      <div class="nm"><h4>CacheBlend</h4><span>shallow deviation</span></div>
+      <div class="how">Picks tokens whose shallow-layer KV drifts most</div>
+      <div class="x">Early-layer drift ≠ true influence on the answer.</div>
+    </div>
+  </div>
+
+  <div class="gap reveal">
+    <div class="k">The gap</div>
+    <p>Neither captures whether a token is structurally positioned to influence downstream decoding under the global causal mask.</p>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ============ METHOD ============ -->
+<section class="block section" id="method" data-screen-label="Method">
+  <div class="reveal">
+    <div class="kicker">03 — InfoFlow KV</div>
+    <h2 class="h2">Recompute only the tokens that <em>carry information</em> to the answer</h2>
+  </div>
+
+  <div class="figwrap reveal" style="margin-top:30px">
+    <div id="pipeline-diagram"></div>
+    <div class="diagram-ctrls">
+      <button class="dc-btn on" data-step="0">1 · Offline prefill</button>
+      <button class="dc-btn" data-step="1">2 · Restore global RoPE</button>
+      <button class="dc-btn" data-step="2">3 · Select · attention norm</button>
+      <button class="dc-btn" data-step="3">4 · Recompute</button>
+    </div>
+    <div class="figcap"><b>Pipeline</b><span class="clickcue">▶ Click</span> through the four stages — or watch it play once.</div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ============ REORDER ============ -->
+<section class="block section" id="reorder" data-screen-label="Reorder">
+  <div class="reveal">
+    <div class="kicker">04 — InfoFlow KV · Reorder</div>
+    <h2 class="h2">For independent evidence, <em>reorder before recomputing</em></h2>
+  </div>
+
+  <div class="figwrap reveal" style="margin-top:30px">
+    <div id="reorder-diagram"></div>
+    <div class="diagram-ctrls">
+      <button class="dc-btn on" data-rstep="0">1 · Select · local RoPE</button>
+      <button class="dc-btn" data-rstep="1">2 · Reorder</button>
+      <button class="dc-btn" data-rstep="2">3 · Restore RoPE + Re-select</button>
+      <button class="dc-btn" data-rstep="3">4 · Recompute</button>
+    </div>
+    <div class="figcap"><b>Reorder</b><span class="clickcue">▶ Click</span> through the four stages — or watch it play once.</div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ============ ROPE GEOMETRY ============ -->
+<section class="block section" id="rope" data-screen-label="RoPE geometry">
+  <div class="reveal">
+    <div class="kicker">05 — Why geometry matters</div>
+    <h2 class="h2">How we place RoPE positions <em>changes which tokens get selected</em></h2>
+    <p class="body">Each cached chunk was encoded <em>locally</em>. Where we re-place it on the absolute index decides whether positions collide — or match what the model saw at prefill.</p>
+  </div>
+
+  <div class="ropepanel reveal">
+    <div class="roperow">
+      <div class="who"><div class="nm">HL–HP</div><div class="sub">head local · head prompt</div></div>
+      <div class="spec" data-rope="hlhp"></div>
+      <div class="chips"><span class="chp warn">high-freq</span><span class="chp info">prompt near</span></div>
+    </div>
+    <div class="roperow">
+      <div class="who"><div class="nm">TL–TP</div><div class="sub">tail local · tail prompt</div></div>
+      <div class="spec" data-rope="tltp"></div>
+      <div class="chips"><span class="chp warn">low-freq</span><span class="chp info">prompt near</span></div>
+    </div>
+    <div class="roperow">
+      <div class="who"><div class="nm">HL–TP</div><div class="sub">head local · tail prompt</div></div>
+      <div class="spec" data-rope="hltp"></div>
+      <div class="chips"><span class="chp warn">split freq</span><span class="chp info">prompt far</span></div>
+    </div>
+    <div class="roperow good">
+      <div class="who"><div class="nm">GLOBAL</div><div class="sub">true absolute indices · adopted</div></div>
+      <div class="spec" data-rope="global"></div>
+      <div class="chips"><span class="chp ok">contiguous index</span><span class="chp ok">inference-aligned</span></div>
+    </div>
+  </div>
+
+  <div class="tablewrap reveal" style="margin-top:24px">
+    <table class="results">
+      <thead><tr><th>RoPE config</th><th></th><th>2WikiMQA</th><th>MuSiQue</th><th>HotpotQA</th><th>NarrativeQA</th></tr></thead>
+      <tbody>
+        <tr><td>HL–HP</td><td>both at head</td><td>0.4455</td><td>0.2871</td><td>0.5529</td><td>0.1481</td></tr>
+        <tr><td>TL–TP</td><td>both at tail</td><td>0.4458</td><td>0.2970</td><td>0.5693</td><td>0.1923</td></tr>
+        <tr><td>HL–TP</td><td>split range</td><td>0.4722</td><td>0.3072</td><td>0.5651</td><td>0.2106</td></tr>
+        <tr class="ours"><td><b>GLOBAL</b></td><td>inference-consistent</td><td class="best">0.5019</td><td class="best">0.3386</td><td class="best">0.5954</td><td class="best">0.2288</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="foot">Qwen · passage-split · F1, higher is better. GLOBAL wins on every benchmark.</p>
+</section>
+
+<hr class="divider" />
+
+<!-- ============ INTERACTIVE DEMO ============ -->
+<section class="block section" id="interactive" data-screen-label="Interactive">
+  <div class="reveal">
+    <div class="kicker">06 — See it select</div>
+    <h2 class="h2">Which tokens get <em>recomputed</em>?</h2>
+  </div>
+  <div class="tokdemo reveal" id="tokdemo">
+    <div class="top">
+      <div class="t">Selection strategy</div>
+      <div class="modes">
+        <button class="mode on" data-mode="ours">InfoFlow</button>
+        <button class="mode" data-mode="cb">CacheBlend</button>
+        <button class="mode" data-mode="epic">EPIC</button>
+      </div>
+    </div>
+    <div class="tokbody">
+      <div class="prompt-line"><b>Prompt ›</b> Who directed the film adapted from the novel that won the 1985 Booker Prize?</div>
+      <div class="tokens" id="tokens"></div>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--chunk-a)"></span>chunk 1</span>
+        <span><span class="sw" style="background:var(--chunk-b)"></span>chunk 2</span>
+        <span><span class="sw" style="background:var(--chunk-c)"></span>chunk 3</span>
+        <span><span class="sw" style="background:var(--chunk-d)"></span>chunk 4</span>
+        <span><span class="sw" style="background:var(--hot)"></span>recomputed</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ============ RESULTS ============ -->
+<section class="block section" id="results" data-screen-label="Results">
+  <div class="reveal">
+    <div class="kicker">07 — Results</div>
+    <h2 class="h2">Consistent gains at a <em>15% budget</em></h2>
+  </div>
+
+  <div class="tabs reveal">
+    <button class="tab on" data-tab="llm">LLM · LongBench</button>
+    <button class="tab" data-tab="vlm">VLM · Qwen3-VL</button>
+  </div>
+
+  <!-- LLM -->
+  <div class="tabpanel on" id="panel-llm">
+    <div class="numhead">LongBench F1 · 15% budget — <b style="color:var(--accent)">bold cyan = best</b>, shaded = second (among recompute methods)</div>
+    <div class="tablewrap">
+      <table class="results wide">
+        <thead>
+          <tr><th rowspan="2" style="width:16%">Method</th><th colspan="4" class="grp">Fixed chunk · 2048</th><th colspan="4" class="grp gdiv">Passage split</th></tr>
+          <tr><th>2Wiki</th><th>MuSiQue</th><th>Hotpot</th><th>NarrQA</th><th class="gdiv">2Wiki</th><th>MuSiQue</th><th>Hotpot</th><th>NarrQA</th></tr>
+        </thead>
+        <tbody>
+          <tr class="model-head"><td colspan="9">Qwen3-14B</td></tr>
+          <tr class="baseline"><td>Baseline</td><td>0.5161</td><td>0.3718</td><td>0.5922</td><td>0.1654</td><td class="gdiv">0.5161</td><td>0.3718</td><td>0.5922</td><td>0.1654</td></tr>
+          <tr class="baseline"><td>No Recompute</td><td>0.3948</td><td>0.1342</td><td>0.4633</td><td>0.1137</td><td class="gdiv">0.1162</td><td>0.1012</td><td>0.3059</td><td>0.2078</td></tr>
+          <tr class="ours"><td><b>Ours</b></td><td class="best">0.5089</td><td class="best">0.3384</td><td class="best">0.5967</td><td>0.2110</td><td class="second gdiv">0.5019</td><td class="best">0.3386</td><td class="second">0.5954</td><td>0.2288</td></tr>
+          <tr class="ours"><td><b>Ours + Reorder</b></td><td class="second">0.4773</td><td class="second">0.2872</td><td>0.5053</td><td class="best">0.2251</td><td class="best gdiv">0.5058</td><td class="second">0.3285</td><td class="best">0.5972</td><td class="best">0.2310</td></tr>
+          <tr><td>CacheBlend</td><td>0.4417</td><td>0.2611</td><td class="second">0.5352</td><td class="second">0.2170</td><td class="gdiv">0.4330</td><td>0.2765</td><td>0.5738</td><td>0.2197</td></tr>
+          <tr><td>EPIC</td><td>0.4321</td><td>0.2368</td><td>0.5284</td><td>0.1999</td><td class="gdiv">0.3697</td><td>0.2480</td><td>0.5443</td><td class="second">0.2291</td></tr>
+
+          <tr class="model-head"><td colspan="9">Llama-3.1-8B</td></tr>
+          <tr class="baseline"><td>Baseline</td><td>0.4588</td><td>0.3285</td><td>0.5410</td><td>0.1862</td><td class="gdiv">0.4588</td><td>0.3285</td><td>0.5410</td><td>0.1862</td></tr>
+          <tr class="baseline"><td>No Recompute</td><td>0.3969</td><td>0.2523</td><td>0.4671</td><td>0.2639</td><td class="gdiv">0.3066</td><td>0.2462</td><td>0.4253</td><td>0.2810</td></tr>
+          <tr class="ours"><td><b>Ours</b></td><td class="best">0.4635</td><td class="best">0.3104</td><td class="best">0.5150</td><td class="second">0.2891</td><td class="second gdiv">0.4208</td><td class="best">0.2996</td><td class="second">0.5123</td><td class="second">0.3141</td></tr>
+          <tr class="ours"><td><b>Ours + Reorder</b></td><td class="second">0.4455</td><td class="second">0.3044</td><td class="second">0.5053</td><td class="best">0.2957</td><td class="best gdiv">0.4417</td><td>0.2793</td><td class="best">0.5202</td><td class="best">0.3243</td></tr>
+          <tr><td>CacheBlend</td><td>0.4131</td><td>0.2823</td><td>0.4720</td><td>0.2685</td><td class="gdiv">0.3976</td><td>0.2708</td><td>0.4872</td><td>0.3095</td></tr>
+          <tr><td>EPIC</td><td>0.4087</td><td>0.2638</td><td>0.4755</td><td>0.2701</td><td class="gdiv">0.3885</td><td class="second">0.2852</td><td>0.4898</td><td>0.3102</td></tr>
+
+          <tr class="model-head"><td colspan="9">GLM-4-9B</td></tr>
+          <tr class="baseline"><td>Baseline</td><td>0.5253</td><td>0.3946</td><td>0.6003</td><td>0.3264</td><td class="gdiv">0.5253</td><td>0.3946</td><td>0.6003</td><td>0.3264</td></tr>
+          <tr class="baseline"><td>No Recompute</td><td>0.4370</td><td>0.2833</td><td>0.5024</td><td>0.2758</td><td class="gdiv">0.3523</td><td>0.2474</td><td>0.4388</td><td>0.3181</td></tr>
+          <tr class="ours"><td><b>Ours</b></td><td class="second">0.5064</td><td class="second">0.3688</td><td class="second">0.5739</td><td class="best">0.3239</td><td class="best gdiv">0.4890</td><td class="best">0.3758</td><td class="best">0.5614</td><td>0.3100</td></tr>
+          <tr class="ours"><td><b>Ours + Reorder</b></td><td class="best">0.5176</td><td class="best">0.3786</td><td class="best">0.5820</td><td class="second">0.3140</td><td class="second gdiv">0.4666</td><td class="second">0.3635</td><td class="second">0.5567</td><td class="best">0.3180</td></tr>
+          <tr><td>CacheBlend</td><td>0.4226</td><td>0.2624</td><td>0.5177</td><td>0.2970</td><td class="gdiv">0.3757</td><td>0.3188</td><td>0.5164</td><td class="second">0.3179</td></tr>
+          <tr><td>EPIC</td><td>0.4401</td><td>0.2902</td><td>0.5362</td><td>0.2962</td><td class="gdiv">0.4521</td><td>0.3091</td><td>0.5481</td><td>0.3142</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="foot">Ours is best or second-best on every benchmark · largest gains on multi-hop reasoning. Baseline &amp; No Recompute are references, not competitors.</p>
+  </div>
+
+  <!-- VLM -->
+  <div class="tabpanel" id="panel-vlm">
+    <div class="numhead">Qwen3-VL-8B · five multimodal QA benchmarks · larger k = more visual chunks, stronger mismatch</div>
+    <div class="tablewrap">
+      <table class="results">
+        <thead><tr><th style="width:22%">Method</th><th>RealWorldQA</th><th>ChartQA</th><th>OCRBench</th><th>HRBench4K</th><th>InfoVQA</th></tr></thead>
+        <tbody>
+          <tr class="model-head"><td colspan="6">k = 0 · no chunk-wise recomputation</td></tr>
+          <tr class="baseline"><td>Baseline</td><td>0.7059</td><td>83.08</td><td>878</td><td>0.7488</td><td>83.07</td></tr>
+
+          <tr class="model-head"><td colspan="6">k = 2 · two visual chunks</td></tr>
+          <tr class="baseline"><td>No Recompute</td><td>0.6745</td><td>71.32</td><td>839</td><td>0.7275</td><td>71.64</td></tr>
+          <tr class="ours"><td><b>Ours</b></td><td class="best">0.6810</td><td class="best">73.48</td><td class="second">842</td><td class="best">0.7263</td><td class="best">73.07</td></tr>
+          <tr><td>CacheBlend</td><td class="second">0.6758</td><td class="second">71.72</td><td class="best">845</td><td>0.7238</td><td class="second">72.00</td></tr>
+          <tr><td>EPIC</td><td>0.6745</td><td>70.92</td><td>836</td><td class="second">0.7250</td><td>71.51</td></tr>
+
+          <tr class="model-head"><td colspan="6">k = 4 · four visual chunks</td></tr>
+          <tr class="baseline"><td>No Recompute</td><td>0.6588</td><td>62.00</td><td>781</td><td>0.6888</td><td>57.88</td></tr>
+          <tr class="ours"><td><b>Ours</b></td><td class="best">0.6667</td><td class="best">65.68</td><td class="best">802</td><td class="best">0.6913</td><td class="best">62.23</td></tr>
+          <tr><td>CacheBlend</td><td class="second">0.6562</td><td class="second">62.68</td><td class="second">786</td><td class="second">0.6863</td><td class="second">58.56</td></tr>
+          <tr><td>EPIC</td><td>0.6549</td><td>62.48</td><td>785</td><td>0.6725</td><td>57.82</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="foot">Higher is better · OCRBench scored /1000, ChartQA &amp; InfoVQA in %, others 0–1. Gains widen with k — biggest wins on ChartQA &amp; InfoVQA, which bind dispersed visual elements to text.</p>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ============ EFFICIENCY ============ -->
+<section class="block section" id="efficiency" data-screen-label="Efficiency">
+  <div class="reveal">
+    <div class="kicker">08 — Efficiency</div>
+    <h2 class="h2">Faster than <em>ring attention</em> — and more accurate</h2>
+    <p class="body">Assume no cache available, context computed on the fly. On 4× H100 sequence-parallel prefill we recompute only the information-critical tokens.</p>
+  </div>
+
+  <div class="speedgrid reveal">
+    <div class="spcard">
+      <div class="len">8,192 tokens</div>
+      <div class="big"><span>2.44×</span></div>
+      <div class="sub">vs. single-GPU prefill</div>
+      <div class="bar-row"><span class="l">Single-GPU</span><div class="bar"><i data-w="100%"></i></div><span class="n">567</span></div>
+      <div class="bar-row"><span class="l">Ring Attn</span><div class="bar"><i data-w="43.7%"></i></div><span class="n">248</span></div>
+      <div class="bar-row ours"><span class="l">Ours</span><div class="bar"><i data-w="40.9%"></i></div><span class="n">232</span></div>
+    </div>
+    <div class="spcard">
+      <div class="len">16,384 tokens</div>
+      <div class="big"><span>3.01×</span></div>
+      <div class="sub">vs. single-GPU prefill</div>
+      <div class="bar-row"><span class="l">Single-GPU</span><div class="bar"><i data-w="100%"></i></div><span class="n">1286</span></div>
+      <div class="bar-row"><span class="l">Ring Attn</span><div class="bar"><i data-w="55.0%"></i></div><span class="n">708</span></div>
+      <div class="bar-row ours"><span class="l">Ours</span><div class="bar"><i data-w="33.3%"></i></div><span class="n">428</span></div>
+    </div>
+    <div class="spcard">
+      <div class="len">32,768 tokens</div>
+      <div class="big"><span>3.49×</span></div>
+      <div class="sub">vs. single-GPU prefill</div>
+      <div class="bar-row"><span class="l">Single-GPU</span><div class="bar"><i data-w="100%"></i></div><span class="n">3190</span></div>
+      <div class="bar-row"><span class="l">Ring Attn</span><div class="bar"><i data-w="73.7%"></i></div><span class="n">2350</span></div>
+      <div class="bar-row ours"><span class="l">Ours</span><div class="bar"><i data-w="28.6%"></i></div><span class="n">914</span></div>
+    </div>
+  </div>
+
+  <div class="pillars reveal" style="margin-top:22px">
+    <div class="pillar" style="grid-column:span 1">
+      <div class="k">@ 32K vs RING</div>
+      <div class="big"><span>2.57×</span></div>
+      <p>Communicate only the selected subset, not the whole KV cache.</p>
+    </div>
+    <div class="pillar" style="grid-column:span 2">
+      <div class="k">F1 vs RING ATTENTION · same SP setting</div>
+      <div class="loadbars" style="margin-top:14px">
+        <div class="loadbar peak"><span class="l" style="width:auto">2WikiMQA</span><div class="track"><i data-w="80%"></i></div><span class="n" style="color:var(--accent)">48.9 → 51.5 &nbsp;<span style="color:var(--hot)">+2.55</span></span></div>
+        <div class="loadbar peak"><span class="l" style="width:auto">HotpotQA</span><div class="track"><i data-w="90%"></i></div><span class="n" style="color:var(--accent)">56.5 → 57.8 &nbsp;<span style="color:var(--hot)">+1.30</span></span></div>
+        <div class="loadbar peak"><span class="l" style="width:auto">MuSiQue</span><div class="track"><i data-w="55%"></i></div><span class="n" style="color:var(--accent)">32.1 → 33.5 &nbsp;<span style="color:var(--hot)">+1.44</span></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ============ CONTRIBUTIONS ============ -->
+<section class="block section" id="contributions" data-screen-label="Contributions">
+  <div class="reveal">
+    <div class="kicker">09 — Contributions</div>
+    <h2 class="h2">Select better, <em>recompute less</em></h2>
+  </div>
+  <div class="contribs reveal">
+    <div class="contrib"><div class="n">01</div><div><h3>InfoFlow — a <em>simple attention-norm</em> signal</h3></div></div>
+    <div class="contrib"><div class="n">02</div><div><h3>A <em>reorder strategy</em> from RoPE-geometry analysis</h3></div></div>
+    <div class="contrib"><div class="n">03</div><div><h3>Validated on <em>LLM &amp; VLM</em> — best or second on every benchmark</h3></div></div>
+    <div class="contrib"><div class="n">04</div><div><h3>An <em>on-the-fly</em> efficiency win — up to 3.49× at 32K</h3></div></div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ============ CITE ============ -->
+<section class="block section" id="cite" data-screen-label="Cite">
+  <div class="reveal">
+    <div class="kicker">10 — Cite</div>
+    <h2 class="h2">BibTeX</h2>
+    <div class="bibwrap">
+      <button class="copybtn" id="copybib">Copy</button>
+<pre class="bib" id="bibsrc">@article{teng2026infoflowkv,
+  title   = {InfoFlow KV: Information-Flow-Aware KV Recomputation for Long Context},
+  author  = {Teng, Xin and Zhang, Canyu and Zheng, Shaoyi and
+             Zhuo, Danyang and Zhou, Tianyi and Wang, Shengjie},
+  journal = {arXiv preprint arXiv:2603.05353},
+  year    = {2026}
+}</pre>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>InfoFlow KV · ICML 2026 · sw5973@nyu.edu</div>
+  <div><a href="https://arxiv.org/abs/2603.05353" target="_blank" rel="noopener">arXiv</a> · <a href="https://github.com/Canyu-Zhang/kv-cache-optimization" target="_blank" rel="noopener">Code</a> · <a href="#cite">BibTeX</a></div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
